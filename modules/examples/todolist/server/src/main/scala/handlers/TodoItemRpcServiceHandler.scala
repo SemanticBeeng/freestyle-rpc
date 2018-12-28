@@ -18,13 +18,13 @@ package examples.todolist.server
 package handlers
 
 import cats.Monad
-import cats.Monad.ops._
+import cats.syntax.functor._
 import cats.syntax.option._
 import examples.todolist.service.TodoItemService
 import examples.todolist.TodoItem
 import examples.todolist.protocol.Protocols._
 import examples.todolist.protocol._
-import freestyle.rpc.protocol.Empty
+import higherkindness.mu.rpc.protocol.Empty
 
 class TodoItemRpcServiceHandler[F[_]](implicit M: Monad[F], service: TodoItemService[F])
     extends TodoItemRpcService[F] {
