@@ -111,15 +111,15 @@ trait Runtime extends CommonRuntime {
 
   // Adding to the GrpConfig list the SslContext:
 
-  val grpcConfigs: List[GrpcConfig] = List(
-    SetSslContext(serverSslContext),
-    AddService(Greeter.bindService[IO])
-  )
+  val grpcConfigs: IO[List[GrpcConfig]] =
+     Greeter.bindService[IO]
+       .map(AddService)
+       .map(c => List(SetSslContext(serverSslContext), c))
 
   // Important. We have to create the server with Netty. OkHttp is not supported for the Ssl
   // encryption in mu-rpc at this moment.
 
-  val server: IO[GrpcServer[IO]] = GrpcServer.netty[IO](8080, grpcConfigs)
+  val server: IO[GrpcServer[IO]] = grpcConfigs.flatMap(GrpcServer.netty[IO](8080, _))
 
 }
 
@@ -131,8 +131,8 @@ Lastly, as we did before with the server side, let's see what happens on the cli
 ```tut:silent
 import cats.syntax.either._
 import higherkindness.mu.rpc.ChannelForAddress
-import higherkindness.mu.rpc.client.OverrideAuthority
-import higherkindness.mu.rpc.client.netty.{
+import higherkindness.mu.rpc.channel.OverrideAuthority
+import higherkindness.mu.rpc.channel.netty.{
   NettyChannelInterpreter,
   NettyNegotiationType,
   NettySslContext,
@@ -189,7 +189,7 @@ object MainApp extends CommonRuntime {
 [Java gRPC]: https://github.com/grpc/grpc-java
 [JSON]: https://en.wikipedia.org/wiki/JSON
 [gRPC guide]: https://grpc.io/docs/guides/
-[PBDirect]: https://github.com/btlines/pbdirect
+[PBDirect]: https://github.com/47deg/pbdirect
 [scalamacros]: https://github.com/scalamacros/paradise
 [Monix]: https://monix.io/
 [cats-effect]: https://github.com/typelevel/cats-effect

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,26 +17,33 @@
 package higherkindness.mu.rpc
 package internal.service
 
-import io.grpc.{
-  MethodDescriptor,
-  ServerCallHandler,
-  ServerMethodDefinition,
-  ServerServiceDefinition
-}
+import cats.effect.Sync
+import cats.instances.list._
+import cats.syntax.foldable._
+import cats.syntax.flatMap._
+import io.grpc._
 
-class GRPCServiceDefBuilder(
-    name: String,
-    calls: (MethodDescriptor[_, _], ServerCallHandler[_, _])*) {
-  def apply: ServerServiceDefinition = {
-    val builder = io.grpc.ServerServiceDefinition.builder(name)
-    calls
-      .foldLeft(builder) {
-        case (b, (descriptor, call)) =>
-          b.addMethod(
-            ServerMethodDefinition.create(
-              descriptor.asInstanceOf[MethodDescriptor[Any, Any]],
-              call.asInstanceOf[ServerCallHandler[Any, Any]]))
-      }
-      .build()
+object GRPCServiceDefBuilder {
+
+  type MethodCall = (MethodDescriptor[_, _], ServerCallHandler[_, _])
+
+  def build[F[_]: Sync](name: String, calls: MethodCall*): F[ServerServiceDefinition] = {
+
+    def addMethod(
+        builder: ServerServiceDefinition.Builder,
+        call: MethodCall): F[ServerServiceDefinition.Builder] = Sync[F].delay {
+      val (descriptor, callHandler) = call
+      builder.addMethod(
+        ServerMethodDefinition.create(
+          descriptor.asInstanceOf[MethodDescriptor[Any, Any]],
+          callHandler.asInstanceOf[ServerCallHandler[Any, Any]]))
+    }
+
+    val builder: ServerServiceDefinition.Builder = io.grpc.ServerServiceDefinition.builder(name)
+
+    calls.toList
+      .foldM[F, ServerServiceDefinition.Builder](builder)(addMethod)
+      .flatMap(b => Sync[F].delay(b.build()))
   }
+
 }

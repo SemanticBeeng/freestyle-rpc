@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import cats.effect.Sync
 import pureconfig._
 import com.typesafe.config.{Config, ConfigFactory}
 
-object config {
+package object config {
 
   trait ConfigM[F[_]] {
     def load: F[Config]

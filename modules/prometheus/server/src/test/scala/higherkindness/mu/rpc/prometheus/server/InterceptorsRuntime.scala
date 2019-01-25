@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ case class InterceptorsRuntime(
   import handlers.client._
   import higherkindness.mu.rpc.server._
   import higherkindness.mu.rpc.interceptors.implicits._
+  import cats.instances.list._
+  import cats.syntax.traverse._
 
   //////////////////////////////////
   // Server Runtime Configuration //
@@ -44,15 +46,14 @@ case class InterceptorsRuntime(
 
   implicit val CR: CollectorRegistry = cr
 
-  lazy val grpcConfigs: List[GrpcConfig] = List(
-    AddService(ProtoRPCService.bindService[ConcurrentMonad].interceptWith(monitorInterceptor)),
-    AddService(AvroRPCService.bindService[ConcurrentMonad].interceptWith(monitorInterceptor)),
-    AddService(
-      AvroWithSchemaRPCService.bindService[ConcurrentMonad].interceptWith(monitorInterceptor))
-  )
+  lazy val grpcConfigs: ConcurrentMonad[List[GrpcConfig]] = List(
+    ProtoRPCService.bindService[ConcurrentMonad],
+    AvroRPCService.bindService[ConcurrentMonad],
+    AvroWithSchemaRPCService.bindService[ConcurrentMonad]
+  ).sequence.map(_.map(_.interceptWith(monitorInterceptor)).map(AddService))
 
   implicit lazy val grpcServer: GrpcServer[ConcurrentMonad] =
-    createServerConfOnRandomPort[ConcurrentMonad](grpcConfigs).unsafeRunSync
+    grpcConfigs.flatMap(createServerConfOnRandomPort[ConcurrentMonad]).unsafeRunSync
 
   implicit lazy val muRPCHandler: ServerRPCService[ConcurrentMonad] =
     new ServerRPCService[ConcurrentMonad]

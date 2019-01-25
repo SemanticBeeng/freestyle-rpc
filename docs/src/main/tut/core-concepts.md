@@ -235,7 +235,7 @@ trait CommonRuntime {
 import cats.effect.{IO, Resource}
 import higherkindness.mu.rpc._
 import higherkindness.mu.rpc.config._
-import higherkindness.mu.rpc.client.config._
+import higherkindness.mu.rpc.config.channel._
 import io.grpc.CallOptions
 import service._
 
@@ -410,7 +410,7 @@ Mu also provides instances for `org.joda.time.LocalDate` and `org.joda.time.Loca
 [Java gRPC]: https://github.com/grpc/grpc-java
 [JSON]: https://en.wikipedia.org/wiki/JSON
 [gRPC guide]: https://grpc.io/docs/guides/
-[PBDirect]: https://github.com/btlines/pbdirect
+[PBDirect]: https://github.com/47deg/pbdirect
 [scalamacros]: https://github.com/scalamacros/paradise
 [Monix]: https://monix.io/
 [cats-effect]: https://github.com/typelevel/cats-effect

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package prometheus
 package client
 
 import cats.effect.Resource
-import higherkindness.mu.rpc.client._
+import higherkindness.mu.rpc.channel._
 import higherkindness.mu.rpc.common.ConcurrentMonad
 import higherkindness.mu.rpc.prometheus.shared.Configuration
 import higherkindness.mu.rpc.protocol.Utils._
@@ -36,19 +36,21 @@ case class InterceptorsRuntime(
   import handlers.server._
   import handlers.client._
   import higherkindness.mu.rpc.server._
+  import cats.instances.list._
+  import cats.syntax.traverse._
 
   //////////////////////////////////
   // Server Runtime Configuration //
   //////////////////////////////////
 
-  lazy val grpcConfigs: List[GrpcConfig] = List(
-    AddService(ProtoRPCService.bindService[ConcurrentMonad]),
-    AddService(AvroRPCService.bindService[ConcurrentMonad]),
-    AddService(AvroWithSchemaRPCService.bindService[ConcurrentMonad])
-  )
+  lazy val grpcConfigs: ConcurrentMonad[List[GrpcConfig]] = List(
+    ProtoRPCService.bindService[ConcurrentMonad],
+    AvroRPCService.bindService[ConcurrentMonad],
+    AvroWithSchemaRPCService.bindService[ConcurrentMonad]
+  ).sequence.map(_.map(AddService))
 
   implicit lazy val grpcServer: GrpcServer[ConcurrentMonad] =
-    createServerConfOnRandomPort[ConcurrentMonad](grpcConfigs).unsafeRunSync
+    grpcConfigs.flatMap(createServerConfOnRandomPort[ConcurrentMonad]).unsafeRunSync
 
   implicit lazy val muRPCHandler: ServerRPCService[ConcurrentMonad] =
     new ServerRPCService[ConcurrentMonad]

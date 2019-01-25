@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@ import higherkindness.mu.rpc.protocol._
 
 trait TodoItemProtocol {
 
-  final case class TodoItemMessage(item: String, todoListId: Int, completed: Boolean, id: Int)
+  case class TodoItemMessage(item: String, todoListId: Int, completed: Boolean, id: Int)
 
-  final case class TodoItemRequest(item: String, todoListId: Int)
+  case class TodoItemRequest(item: String, todoListId: Int)
 
-  final case class TodoItemList(list: List[TodoItemMessage])
+  case class TodoItemList(list: List[TodoItemMessage])
 
-  final case class TodoItemResponse(msg: Option[TodoItemMessage])
+  case class TodoItemResponse(msg: Option[TodoItemMessage])
 
   @service(Avro)
   trait TodoItemRpcService[F[_]] {

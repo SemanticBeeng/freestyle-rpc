@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package higherkindness.mu.rpc.benchmarks
 
 import cats.effect.{IO, Resource}
-import cats.syntax.functor._
 import higherkindness.mu.rpc.protocol.Empty
 import java.util.concurrent.TimeUnit
 
@@ -35,11 +34,14 @@ import org.openjdk.jmh.annotations._
 class ProtoBenchmark extends Runtime {
 
   implicit val handler: ProtoHandler[IO] = new ProtoHandler[IO]
-  val sc: ServerChannel                  = ServerChannel(PersonServicePB.bindService[IO])
-  val clientIO: Resource[IO, PersonServicePB[IO]] = PersonServicePB.clientFromChannel[IO](IO(sc.channel))
+
+  def clientIO: Resource[IO, PersonServicePB[IO]] =
+    Resource.liftF(PersonServicePB.bindService[IO])
+      .flatMap(ServerChannel[IO](_))
+      .flatMap(sc => PersonServicePB.clientFromChannel[IO](IO(sc.channel)))
 
   @TearDown
-  def shutdown(): Unit = IO(sc.shutdown()).void.unsafeRunSync()
+  def shutdown(): Unit = {}
 
   @Benchmark
   def listPersons: PersonList = clientIO.use(_.listPersons(Empty)).unsafeRunTimed(defaultTimeOut).get

@@ -75,11 +75,13 @@ object InterceptingServerCalls extends CommonRuntime {
   implicit val greeterServiceHandler: ServiceHandler[IO] = new ServiceHandler[IO]
 
   // The Greeter service is the service defined in the Core concepts section
-  val grpcConfigs: List[GrpcConfig] = List(
-    AddService(Greeter.bindService[IO].interceptWith(monitorInterceptor))
-  )
+  val grpcConfigs: IO[List[GrpcConfig]] = 
+    Greeter.bindService[IO]
+      .map(_.interceptWith(monitorInterceptor))
+      .map(AddService)
+      .map(List(_))
 
-  val server: IO[GrpcServer[IO]] = GrpcServer.default[IO](8080, grpcConfigs)
+  val server: IO[GrpcServer[IO]] = grpcConfigs.flatMap(GrpcServer.default[IO](8080, _))
 
 }
 ```
@@ -92,8 +94,8 @@ In this case, in order to intercept the client calls we need additional configur
 import cats.effect.{IO, Resource}
 import higherkindness.mu.rpc._
 import higherkindness.mu.rpc.config._
-import higherkindness.mu.rpc.client._
-import higherkindness.mu.rpc.client.config._
+import higherkindness.mu.rpc.channel._
+import higherkindness.mu.rpc.config.channel._
 import service._
 
 import higherkindness.mu.rpc.prometheus.shared.Configuration
@@ -141,7 +143,7 @@ configuration.collectorRegistry.register(new DropwizardExports(metrics))
 [Java gRPC]: https://github.com/grpc/grpc-java
 [JSON]: https://en.wikipedia.org/wiki/JSON
 [gRPC guide]: https://grpc.io/docs/guides/
-[PBDirect]: https://github.com/btlines/pbdirect
+[PBDirect]: https://github.com/47deg/pbdirect
 [scalamacros]: https://github.com/scalamacros/paradise
 [Monix]: https://monix.io/
 [cats-effect]: https://github.com/typelevel/cats-effect

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@ package higherkindness.mu.rpc
 package testing
 
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
+import cats.effect.{Resource, Sync}
+import cats.syntax.apply._
+import cats.syntax.functor._
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.internal.NoopServerCall.NoopServerCallListener
 import io.grpc.util.MutableHandlerRegistry
@@ -43,39 +45,28 @@ object servers {
     ssdBuilder.build()
   }
 
-  def withServerChannel[A](services: ServerServiceDefinition*)(f: ServerChannel => A): A = {
+  def withServerChannel[F[_]: Sync](
+      service: F[ServerServiceDefinition],
+      clientInterceptor: Option[ClientInterceptor] = None): Resource[F, ServerChannel] =
+    withServerChannelList(service.map(List(_)), clientInterceptor)
 
-    val sc: ServerChannel = ServerChannel(services: _*)
-    val result: A         = f(sc)
-    sc.shutdown()
+  def withServerChannelList[F[_]: Sync](
+      services: F[List[ServerServiceDefinition]],
+      clientInterceptor: Option[ClientInterceptor] = None): Resource[F, ServerChannel] =
+    Resource.liftF(services).flatMap(ServerChannel.fromList(_, clientInterceptor))
 
-    result
-  }
-
-  final case class ServerChannel(server: Server, channel: ManagedChannel) {
-
-    def shutdown(): Boolean = {
-      channel.shutdown()
-      server.shutdown()
-
-      try {
-        channel.awaitTermination(1, TimeUnit.MINUTES)
-        server.awaitTermination(1, TimeUnit.MINUTES)
-      } catch {
-        case e: InterruptedException =>
-          Thread.currentThread.interrupt()
-          throw new RuntimeException(e)
-      } finally {
-        channel.shutdownNow()
-        server.shutdownNow()
-        (): Unit
-      }
-    }
-  }
+  final case class ServerChannel(server: Server, channel: ManagedChannel)
 
   object ServerChannel {
 
-    def apply(serverServiceDefinitions: ServerServiceDefinition*): ServerChannel = {
+    def apply[F[_]: Sync](
+        serverServiceDefinition: ServerServiceDefinition,
+        clientInterceptor: Option[ClientInterceptor] = None): Resource[F, ServerChannel] =
+      ServerChannel.fromList[F](List(serverServiceDefinition), clientInterceptor)
+
+    def fromList[F[_]: Sync](
+        serverServiceDefinitions: List[ServerServiceDefinition],
+        clientInterceptor: Option[ClientInterceptor] = None): Resource[F, ServerChannel] = {
       val serviceRegistry =
         new MutableHandlerRegistry
       val serverName: String =
@@ -88,9 +79,17 @@ object servers {
       val channelBuilder: InProcessChannelBuilder =
         InProcessChannelBuilder.forName(serverName)
 
-      serverServiceDefinitions.toList.map(serverBuilder.addService)
+      clientInterceptor.foreach { interceptor =>
+        channelBuilder.intercept(interceptor)
+      }
 
-      ServerChannel(serverBuilder.build().start(), channelBuilder.directExecutor.build)
+      serverServiceDefinitions.map(serverBuilder.addService)
+
+      Resource.make {
+        (
+          Sync[F].delay(serverBuilder.build().start()),
+          Sync[F].delay(channelBuilder.directExecutor.build)).mapN(ServerChannel(_, _))
+      }(sc => Sync[F].delay(sc.server.shutdown()).void)
     }
 
   }

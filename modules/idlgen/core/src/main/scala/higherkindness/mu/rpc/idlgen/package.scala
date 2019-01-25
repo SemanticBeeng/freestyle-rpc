@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2018 47 Degrees, LLC. <http://www.47deg.com>
+ * Copyright 2017-2019 47 Degrees, LLC. <http://www.47deg.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package higherkindness.mu.rpc
 
 import higherkindness.mu.rpc.idlgen.avro._
 import higherkindness.mu.rpc.idlgen.proto.ProtoIdlGenerator
+import higherkindness.mu.rpc.idlgen.util.Toolbox.u._
+import higherkindness.mu.rpc.idlgen.util.AstOptics.ast
 import higherkindness.mu.rpc.protocol.{Avro, AvroWithSchema, Protobuf, SerializationType}
-import higherkindness.mu.rpc.internal.util.Toolbox.u._
-import higherkindness.mu.rpc.internal.util.AstOptics.ast
 
 package object idlgen {
 
