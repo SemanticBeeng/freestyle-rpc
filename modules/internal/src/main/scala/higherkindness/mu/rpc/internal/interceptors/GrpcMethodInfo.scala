@@ -21,7 +21,7 @@ import io.grpc.MethodDescriptor
 import io.grpc.MethodDescriptor.MethodType
 
 /**
- * This model encapsulates a friendly representation of an RPC [[io.grpc.MethodDescriptor]].
+ * This model encapsulates a friendly representation of an RPC `io.grpc.MethodDescriptor`.
  *
  * @param serviceName Service name owning the method.
  * @param fullMethodName Service full name, in format `full.serviceName/MethodName`.
@@ -32,14 +32,7 @@ case class GrpcMethodInfo(
     serviceName: String,
     fullMethodName: String,
     methodName: String,
-    `type`: MethodType) {
-
-  def isClientStreaming: Boolean =
-    (`type` eq MethodType.CLIENT_STREAMING) || (`type` eq MethodType.BIDI_STREAMING)
-
-  def isServerStreaming: Boolean =
-    (`type` eq MethodType.SERVER_STREAMING) || (`type` eq MethodType.BIDI_STREAMING)
-}
+    `type`: MethodType)
 
 object GrpcMethodInfo {
 

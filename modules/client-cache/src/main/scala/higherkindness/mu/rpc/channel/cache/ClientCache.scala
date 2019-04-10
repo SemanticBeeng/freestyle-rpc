@@ -18,17 +18,10 @@ package higherkindness.mu.rpc.channel.cache
 
 import cats.effect.concurrent.Ref
 import cats.effect._
-import cats.instances.list._
-import cats.instances.tuple._
-import cats.syntax.apply._
-import cats.syntax.bifunctor._
-import cats.syntax.flatMap._
-import cats.syntax.foldable._
-import cats.syntax.functor._
+import cats.implicits._
 import fs2.Stream
 import org.log4s.{getLogger, Logger}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration, DurationLong, FiniteDuration, MILLISECONDS}
 
 trait ClientCache[Client[_[_]], F[_]] {
@@ -43,6 +36,17 @@ object ClientCache {
 
   type HostPort = (String, Int)
 
+  def fromResource[Client[_[_]], F[_]](
+      getHostAndPort: F[HostPort],
+      createClient: HostPort => Resource[F, Client[F]],
+      tryToRemoveUnusedEvery: FiniteDuration,
+      removeUnusedAfter: FiniteDuration
+  )(
+      implicit CE: ConcurrentEffect[F],
+      cs: ContextShift[F],
+      timer: Timer[F]): Stream[F, ClientCache[Client, F]] =
+    impl(getHostAndPort, createClient(_).allocated, tryToRemoveUnusedEvery, removeUnusedAfter)
+
   def impl[Client[_[_]], F[_]](
       getHostAndPort: F[HostPort],
       createClient: HostPort => F[(Client[F], F[Unit])],
@@ -50,7 +54,7 @@ object ClientCache {
       removeUnusedAfter: FiniteDuration
   )(
       implicit CE: ConcurrentEffect[F],
-      ec: ExecutionContext,
+      cs: ContextShift[F],
       timer: Timer[F]): Stream[F, ClientCache[Client, F]] = {
 
     type UnixMillis = Duration
@@ -83,8 +87,7 @@ object ClientCache {
                   .as(clientMeta.client))
         (_, lastClean) <- ref.get
         _ <- if (lastClean < (now - tryToRemoveUnusedEvery))
-          Concurrent[F].start(
-            Async.shift(ec) *> cleanup(ref, _.lastAccessed < (now - removeUnusedAfter)))
+          Concurrent[F].start(cs.shift *> cleanup(ref, _.lastAccessed < (now - removeUnusedAfter)))
         else CE.unit
       } yield client
     }

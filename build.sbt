@@ -96,6 +96,7 @@ lazy val ssl = project
 
 lazy val `client-cache` = project
   .in(file("modules/client-cache"))
+  .dependsOn(common % "test->test")
   .settings(moduleName := "mu-rpc-client-cache")
   .settings(clientCacheSettings)
 
@@ -114,64 +115,38 @@ lazy val server = project
   .settings(moduleName := "mu-rpc-server")
   .settings(serverSettings)
 
-//////////////////////
-//// INTERCEPTORS ////
-//////////////////////
-
-lazy val interceptors = project
-  .in(file("modules/interceptors"))
-  .settings(moduleName := "mu-rpc-interceptors")
-  .settings(interceptorsSettings)
-
 ////////////////////
 //// PROMETHEUS ////
 ////////////////////
 
-lazy val `prometheus-shared` = project
-  .in(file("modules/prometheus/shared"))
-  .dependsOn(interceptors % "compile->compile;test->test")
-  .settings(moduleName := "mu-rpc-prometheus-shared")
-  .settings(prometheusSettings)
-
-lazy val `prometheus-server` = project
-  .in(file("modules/prometheus/server"))
-  .dependsOn(`prometheus-shared` % "compile->compile;test->test")
-  .dependsOn(server % "compile->compile;test->test")
-  .settings(moduleName := "mu-rpc-prometheus-server")
-
-lazy val `prometheus-client` = project
-  .in(file("modules/prometheus/client"))
-  .dependsOn(`prometheus-shared` % "compile->compile;test->test")
-  .dependsOn(channel % "compile->compile;test->test")
-  .dependsOn(server % "test->test")
-  .settings(moduleName := "mu-rpc-prometheus-client")
-  .settings(prometheusClientSettings)
+lazy val `prometheus` = project
+  .in(file("modules/metrics/prometheus"))
+  .dependsOn(`internal-core` % "compile->compile;test->test")
+  .dependsOn(testing % "test->test")
+  .settings(moduleName := "mu-rpc-prometheus")
+  .settings(prometheusMetricsSettings)
 
 ////////////////////
 //// DROPWIZARD ////
 ////////////////////
 
-lazy val `dropwizard-server` = project
-  .in(file("modules/dropwizard/server"))
-  .dependsOn(`prometheus-server` % "compile->compile;test->test")
-  .dependsOn(server % "compile->compile;test->test")
-  .settings(moduleName := "mu-rpc-dropwizard-server")
-  .settings(dropwizardSettings)
-
-lazy val `dropwizard-client` = project
-  .in(file("modules/dropwizard/client"))
-  .dependsOn(`prometheus-client` % "compile->compile;test->test")
-  .dependsOn(channel % "compile->compile;test->test")
-  .dependsOn(server % "test->test")
-  .settings(moduleName := "mu-rpc-dropwizard-client")
-  .settings(dropwizardSettings)
-
 lazy val `dropwizard` = project
   .in(file("modules/metrics/dropwizard"))
-  .dependsOn(`internal-core`)
+  .dependsOn(`internal-core` % "compile->compile;test->test")
   .dependsOn(testing % "test->test")
   .settings(moduleName := "mu-rpc-dropwizard")
   .settings(dropwizardMetricsSettings)
+
+///////////////////
+//// HTTP/REST ////
+///////////////////
+
+lazy val `http` = project
+  .in(file("modules/http"))
+  .dependsOn(common % "compile->compile;test->test")
+  .dependsOn(server % "compile->compile;test->test")
+  .settings(moduleName := "mu-rpc-http")
+  .settings(httpSettings)
 
 ////////////////
 //// IDLGEN ////
@@ -193,28 +168,36 @@ lazy val `idlgen-sbt` = project
   .enablePlugins(BuildInfoPlugin)
   .settings(buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion))
   .settings(buildInfoPackage := "mu.rpc.idlgen")
+  // See https://github.com/sbt/sbt/issues/3248
+  .settings(publishLocal := publishLocal
+    .dependsOn(
+      common / publishLocal,
+      `internal-core` / publishLocal,
+      channel / publishLocal,
+      server / publishLocal,
+      `internal-fs2` / publishLocal,
+      fs2 / publishLocal,
+      `marshallers-jodatime` / publishLocal,
+      `idlgen-core` / publishLocal
+    )
+    .value)
   .enablePlugins(SbtPlugin)
 
 ////////////////////
 //// BENCHMARKS ////
 ////////////////////
 
-lazy val lastReleasedV = "0.15.1"
+lazy val lastReleasedV = "0.17.2"
 
 lazy val `benchmarks-vprev` = project
   .in(file("benchmarks/vprev"))
-  // TODO: temporarily disabled until the project is migrated
-//  .settings(
-//    libraryDependencies ++= Seq(
-//      "io.higherkindness" %% "mu-rpc-channel" % lastReleasedV,
-//      "io.higherkindness" %% "mu-rpc-server"      % lastReleasedV,
-//      "io.higherkindness" %% "mu-rpc-testing"     % lastReleasedV
-//    )
-//  )
-  // TODO: remove dependsOn and uncomment the lines above
-  .dependsOn(channel)
-  .dependsOn(server)
-  .dependsOn(testing)
+  .settings(
+    libraryDependencies ++= Seq(
+      "io.higherkindness" %% "mu-rpc-channel" % lastReleasedV,
+      "io.higherkindness" %% "mu-rpc-server"  % lastReleasedV,
+      "io.higherkindness" %% "mu-rpc-testing" % lastReleasedV
+    )
+  )
   .settings(coverageEnabled := false)
   .settings(moduleName := "mu-benchmarks-vprev")
   .settings(crossSettings)
@@ -349,7 +332,6 @@ lazy val `marshallers-jodatime` = project
 lazy val `legacy-avro-decimal-compat-protocol` = project
   .in(file("modules/legacy-avro-decimal/procotol"))
   .settings(moduleName := "legacy-avro-decimal-compat-protocol")
-  .settings(legacyAvroDecimalProtocolSettings)
   .disablePlugins(scoverage.ScoverageSbtPlugin)
 
 lazy val `legacy-avro-decimal-compat-model` = project
@@ -379,16 +361,12 @@ lazy val allModules: Seq[ProjectReference] = Seq(
   `okhttp`,
   server,
   config,
-  interceptors,
-  `prometheus-shared`,
-  `prometheus-client`,
-  `prometheus-server`,
-  `dropwizard-server`,
-  `dropwizard-client`,
   `dropwizard`,
+  `prometheus`,
   testing,
   ssl,
   `idlgen-core`,
+  `http`,
   `marshallers-jodatime`,
   `example-routeguide-protocol`,
   `example-routeguide-common`,
@@ -401,8 +379,8 @@ lazy val allModules: Seq[ProjectReference] = Seq(
   `example-todolist-client`,
   `benchmarks-vprev`,
   `benchmarks-vnext`,
-  `legacy-avro-decimal-compat-protocol`,
   `legacy-avro-decimal-compat-model`,
+  `legacy-avro-decimal-compat-protocol`,
   `legacy-avro-decimal-compat-encoders`
 )
 

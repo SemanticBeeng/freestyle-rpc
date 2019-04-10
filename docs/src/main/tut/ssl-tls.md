@@ -22,7 +22,7 @@ On the server and client side, we will need two files to configure the `SslConte
 
 ## Usage
 
-The first step to secure our [mu] services is to add the library dependencies `mu-rpc-netty-ssl` and `mu-rpc-client-netty` in our build.
+The first step to secure our [mu] services is to add the library dependencies `mu-rpc-netty-ssl` and `mu-rpc-netty` in our build.
 
 For the second step, we have to move both server/client certificates and private keys to the `resources` folder.
 
@@ -35,7 +35,7 @@ We won't cover the details regarding creation of `RPCService`, `ServerRPCService
 ```tut:invisible
 trait CommonRuntime {
 
-  implicit val EC: scala.concurrent.ExecutionContext =
+  val EC: scala.concurrent.ExecutionContext =
     scala.concurrent.ExecutionContext.Implicits.global
 
   implicit val timer: cats.effect.Timer[cats.effect.IO]     = cats.effect.IO.timer(EC)
@@ -135,8 +135,7 @@ import higherkindness.mu.rpc.channel.OverrideAuthority
 import higherkindness.mu.rpc.channel.netty.{
   NettyChannelInterpreter,
   NettyNegotiationType,
-  NettySslContext,
-  NettyUsePlaintext
+  NettySslContext
 }
 import io.grpc.netty.NegotiationType
 
@@ -170,7 +169,6 @@ object MainApp extends CommonRuntime {
     ChannelForAddress("localhost", 8080),
     List(OverrideAuthority(TestUtils.TEST_SERVER_HOST)),
     List(
-      NettyUsePlaintext(),
       NettyNegotiationType(NegotiationType.TLS),
       NettySslContext(clientSslContext)
     )
